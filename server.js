@@ -9,9 +9,13 @@ require('dotenv').config();
 
 try {
     let serviceAccount;
-    if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
-        serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY_JSON);
-    } else {
+    // Vercel環境ではBase64エンコードされたキーをデコード
+    if (process.env.SERVICE_ACCOUNT_KEY_B64) {
+        const decodedKey = Buffer.from(process.env.SERVICE_ACCOUNT_KEY_B64, 'base64').toString('utf-8');
+        serviceAccount = JSON.parse(decodedKey);
+    } 
+    // ローカル環境ではファイルを直接読み込む
+    else {
         serviceAccount = require('./serviceAccountKey.json');
     }
     admin.initializeApp({
@@ -70,18 +74,10 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) { return next(); }
-  res.status(401).json({ error: 'ログインが必要です' });
-}
-
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly'], accessType: 'offline', prompt: 'consent' }));
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login-failed' }), (req, res) => res.redirect('/'));
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => res.redirect('/'));
 app.get('/logout', (req, res, next) => {
-    req.logout(function(err) {
-        if (err) { return next(err); }
-        res.redirect('/');
-    });
+    req.logout(function(err) { if (err) { return next(err); } res.redirect('/'); });
 });
 
 app.get('/api/user', (req, res) => {
@@ -92,17 +88,8 @@ app.get('/api/user', (req, res) => {
     }
 });
 
-app.get('/api/settings', ensureAuthenticated, async (req, res) => {
-    const settingsRef = db.collection('settings').doc(req.user.id);
-    const doc = await settingsRef.get();
-    res.json(doc.exists ? doc.data() : {});
-});
-
-app.post('/api/settings', ensureAuthenticated, async (req, res) => {
-    const settingsRef = db.collection('settings').doc(req.user.id);
-    await settingsRef.set(req.body);
-    res.status(200).json({ message: '設定を保存しました' });
-});
+app.get('/api/settings', (req, res) => { /* ... */ });
+app.post('/api/settings', (req, res) => { /* ... */ });
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -112,6 +99,6 @@ module.exports = app;
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => {
-      console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT} で確認できます。`);
+      console.log(`サーバーがポート${PORT}で起動しました。`);
     });
 }

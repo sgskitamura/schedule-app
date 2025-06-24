@@ -1,8 +1,3 @@
-/*
- * --------------------------------------------------------------------------
- * バックエンドサーバー 最終完成版 (Node.js + Express + Firebase Admin)
- * --------------------------------------------------------------------------
- */
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -36,7 +31,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'))); 
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'a-very-secret-key-that-is-long-enough',
+  secret: process.env.SESSION_SECRET || 'a-very-secret-key-that-is-long-enough-for-production',
   resave: false,
   saveUninitialized: false,
   cookie: { secure: 'auto' } 

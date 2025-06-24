@@ -12,29 +12,22 @@ const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
-// Vercel環境とローカル環境の両方でサービスアカウントキーを読み込む
-let serviceAccount;
-if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
-    try {
+try {
+    let serviceAccount;
+    if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
         serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY_JSON);
-    } catch (e) {
-        console.error('SERVICE_ACCOUNT_KEY_JSON の解析に失敗しました:', e);
-        process.exit(1);
-    }
-} else {
-    try {
+    } else {
         serviceAccount = require('./serviceAccountKey.json');
-    } catch (e) {
-        console.error('serviceAccountKey.json の読み込みに失敗しました。ファイルが存在するか確認してください。', e);
-        process.exit(1);
     }
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+} catch(e) {
+    console.error("Firebase Admin SDKの初期化に失敗しました:", e);
+    process.exit(1);
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
 const db = admin.firestore();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -43,10 +36,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'))); 
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'default_secret_for_dev_is_not_safe',
+  secret: process.env.SESSION_SECRET || 'a-very-secret-key-that-is-long-enough',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } 
+  cookie: { secure: 'auto' } 
 }));
 
 app.use(passport.initialize());
@@ -120,6 +113,10 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT} で確認できます。`);
-});
+module.exports = app;
+
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+      console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT} で確認できます。`);
+    });
+}

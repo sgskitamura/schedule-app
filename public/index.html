@@ -50,20 +50,20 @@
         }
 
         async function loadSettings(user) {
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/settings`);
-                const settings = await res.json();
-                state = {
-                    user,
-                    members: settings.members || { [user.displayName]: [] },
-                    holidaySettings: settings.holidaySettings || { excludeJpHolidays: true, excludedWeekdays: [0, 6], customHolidays: [] },
-                    timeSettings: settings.timeSettings || Array(7).fill({ start: '09:00', end: '18:00' }),
-                    lunchBreak: settings.lunchBreak || { enabled: true, start: '12:00', end: '13:00' },
-                    isAdminMode: false
-                };
-                state.holidaySettings.excludedWeekdays = new Set(state.holidaySettings.excludedWeekdays);
-                state.holidaySettings.customHolidays = new Set(state.holidaySettings.customHolidays);
-            } catch (e) { console.error("設定の読み込みに失敗しました", e); }
+             try {
+                 const res = await fetch(`${API_BASE_URL}/api/settings`);
+                 const settings = await res.json();
+                 state = {
+                     user,
+                     members: settings.members || { [user.displayName]: [] },
+                     holidaySettings: settings.holidaySettings || { excludeJpHolidays: true, excludedWeekdays: [0, 6], customHolidays: [] },
+                     timeSettings: settings.timeSettings || Array(7).fill({ start: '09:00', end: '18:00' }),
+                     lunchBreak: settings.lunchBreak || { enabled: true, start: '12:00', end: '13:00' },
+                     isAdminMode: false
+                 };
+                 state.holidaySettings.excludedWeekdays = new Set(state.holidaySettings.excludedWeekdays);
+                 state.holidaySettings.customHolidays = new Set(state.holidaySettings.customHolidays);
+            } catch(e) { console.error("設定の読み込みに失敗しました", e); }
         }
 
         async function saveSettings() {
@@ -94,16 +94,14 @@
             dom.appContainer.querySelectorAll('.tab-btn').forEach(tab => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
         }
         function renderAllTabs() {
-            renderGeneratorTab();
-            // 他のタブも同様にレンダリングする関数を呼び出す
+            renderGeneratorTab(); renderParserTab(); renderMembersTab();
+            renderHolidaysTab(); renderTimeSettingsTab();
         }
         function switchTab(tabName) {
             dom.appContainer.querySelectorAll('.tab-btn').forEach(tab => {
                 const isSelected = tab.dataset.tab === tabName;
-                tab.classList.toggle('text-indigo-600', isSelected);
-                tab.classList.toggle('border-indigo-600', isSelected);
-                tab.classList.toggle('text-slate-500', !isSelected);
-                tab.classList.toggle('border-b-2', isSelected);
+                tab.classList.toggle('text-indigo-600', isSelected); tab.classList.toggle('border-indigo-600', isSelected);
+                tab.classList.toggle('text-slate-500', !isSelected); tab.classList.toggle('border-b-2', isSelected);
             });
             dom.appContainer.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.toggle('hidden', content.id !== `${tabName}-content`);
@@ -118,19 +116,19 @@
                 }
             }
         }
-
         function renderGeneratorTab() {
             const container = document.getElementById('generator-content');
             container.innerHTML = `
                 <div class="bg-white p-6 rounded-2xl shadow-lg space-y-6">
-                    <div><h3 class="text-lg font-semibold text-slate-700 mb-3">メンバーを選択</h3><div id="gen-member-selection" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div></div>
-                    <div><h3 class="text-lg font-semibold text-slate-700 mb-3">候補の期間を選択</h3><div class="flex flex-col sm:flex-row items-center gap-4"><input type="date" id="start-date" class="w-full p-3 border border-slate-300 rounded-lg"><span class="text-slate-500">〜</span><input type="date" id="end-date" class="w-full p-3 border border-slate-300 rounded-lg"></div></div>
-                    <div><h3 class="text-lg font-semibold text-slate-700 mb-3">会議の時間を選択</h3><select id="meeting-duration" class="w-full p-3 border bg-white border-slate-300 rounded-lg"><option value="30">30分</option><option value="60" selected>60分</option><option value="90">90分</option><option value="120">120分</option></select></div>
+                    <div><h3 class="text-lg font-semibold text-slate-700 mb-3">1. メンバーを選択</h3><div id="gen-member-selection" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div></div>
+                    <div><h3 class="text-lg font-semibold text-slate-700 mb-3">2. 候補の期間を選択</h3><div class="flex flex-col sm:flex-row items-center gap-4"><input type="date" id="start-date" class="w-full p-3 border border-slate-300 rounded-lg"><span class="text-slate-500">〜</span><input type="date" id="end-date" class="w-full p-3 border border-slate-300 rounded-lg"></div></div>
+                    <div><h3 class="text-lg font-semibold text-slate-700 mb-3">3. 会議の時間を選択</h3><select id="meeting-duration" class="w-full p-3 border bg-white border-slate-300 rounded-lg"><option value="30">30分</option><option value="60" selected>60分</option><option value="90">90分</option><option value="120">120分</option></select></div>
                     <div class="pt-4 text-center"><button id="generate-btn" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-md">候補の文章を生成する</button></div>
                 </div>
                 <div id="result-area" class="bg-white p-6 rounded-2xl shadow-lg mt-8 hidden"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-semibold text-slate-700">生成された文章</h3><button id="copy-btn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg">コピー</button></div><pre id="output-text" class="whitespace-pre-wrap bg-slate-50 p-4 rounded-lg text-slate-800 border"></pre><div id="copy-feedback" class="text-green-600 font-semibold mt-2 text-right h-6"></div></div>
             `;
             const memberContainer = document.getElementById('gen-member-selection');
+            memberContainer.innerHTML = '';
             Object.keys(state.members).forEach(m => {
                  const div = document.createElement('div');
                  div.className = 'flex items-center';

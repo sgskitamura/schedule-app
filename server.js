@@ -12,24 +12,33 @@ const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
-try {
-    const serviceAccount = require('./serviceAccountKey.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-} catch(e) {
-    console.error("サービスアカウントキーの読み込みに失敗しました。serviceAccountKey.json を確認してください。", e);
-    process.exit(1);
+// Vercel環境とローカル環境の両方でサービスアカウントキーを読み込む
+let serviceAccount;
+if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
+    try {
+        serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY_JSON);
+    } catch (e) {
+        console.error('SERVICE_ACCOUNT_KEY_JSON の解析に失敗しました:', e);
+        process.exit(1);
+    }
+} else {
+    try {
+        serviceAccount = require('./serviceAccountKey.json');
+    } catch (e) {
+        console.error('serviceAccountKey.json の読み込みに失敗しました。ファイルが存在するか確認してください。', e);
+        process.exit(1);
+    }
 }
 
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 const db = admin.firestore();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({
-    origin: '*',
-    credentials: true
-}));
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'))); 
 
@@ -46,9 +55,7 @@ app.use(passport.session());
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback",
-    accessType: 'offline',
-    prompt: 'consent'
+    callbackURL: "/auth/google/callback"
   },
   async (accessToken, refreshToken, profile, done) => {
     const userRef = db.collection('users').doc(profile.id);
@@ -68,11 +75,8 @@ passport.serializeUser((user, done) => { done(null, user.id); });
 passport.deserializeUser(async (id, done) => {
   try {
       const userDoc = await db.collection('users').doc(id).get();
-      if (userDoc.exists) { 
-          done(null, userDoc.data()); 
-      } else { 
-          done(new Error('User not found.')); 
-      }
+      if (userDoc.exists) { done(null, userDoc.data()); } 
+      else { done(new Error('User not found.')); }
   } catch(error) {
       done(error);
   }
@@ -83,8 +87,8 @@ function ensureAuthenticated(req, res, next) {
   res.status(401).json({ error: 'ログインが必要です' });
 }
 
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly'] }));
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => res.redirect('/'));
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly'], accessType: 'offline', prompt: 'consent' }));
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login-failed' }), (req, res) => res.redirect('/'));
 app.get('/logout', (req, res, next) => {
     req.logout(function(err) {
         if (err) { return next(err); }

@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -7,24 +8,24 @@ const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
-try {
-    let serviceAccount;
-    if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
-        serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY_JSON);
-    } else {
-        serviceAccount = require('./serviceAccountKey.json');
+if (admin.apps.length === 0) {
+    try {
+        let serviceAccount;
+        if (process.env.SERVICE_ACCOUNT_KEY_JSON) {
+            serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY_JSON);
+        } else {
+            serviceAccount = require('./serviceAccountKey.json');
+        }
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
+    } catch(e) {
+        console.error("Firebase Admin SDKの初期化に失敗しました:", e);
     }
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-} catch(e) {
-    console.error("Firebase Admin SDKの初期化に失敗しました:", e);
-    process.exit(1);
 }
 
 const db = admin.firestore();
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
@@ -43,16 +44,13 @@ app.use(passport.session());
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback"
+    callbackURL: process.env.GOOGLE_CALLBACK_URL // ★ 環境変数で切り替え
   },
   async (accessToken, refreshToken, profile, done) => {
     const userRef = db.collection('users').doc(profile.id);
     const userData = {
-      id: profile.id,
-      displayName: profile.displayName,
-      email: profile.emails[0].value,
-      accessToken: accessToken,
-      refreshToken: refreshToken || null,
+      id: profile.id, displayName: profile.displayName, email: profile.emails[0].value,
+      accessToken: accessToken, refreshToken: refreshToken || null,
     };
     await userRef.set(userData, { merge: true });
     return done(null, userData);
@@ -70,11 +68,6 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) { return next(); }
-  res.status(401).json({ error: 'ログインが必要です' });
-}
-
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar.events.readonly'], accessType: 'offline', prompt: 'consent' }));
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => res.redirect('/'));
 app.get('/logout', (req, res, next) => {
@@ -91,27 +84,11 @@ app.get('/api/user', (req, res) => {
         res.json({ loggedIn: false });
     }
 });
-
-app.get('/api/settings', ensureAuthenticated, async (req, res) => {
-    const settingsRef = db.collection('settings').doc(req.user.id);
-    const doc = await settingsRef.get();
-    res.json(doc.exists ? doc.data() : {});
-});
-
-app.post('/api/settings', ensureAuthenticated, async (req, res) => {
-    const settingsRef = db.collection('settings').doc(req.user.id);
-    await settingsRef.set(req.body);
-    res.status(200).json({ message: '設定を保存しました' });
-});
+app.get('/api/settings', (req, res) => { /* ... */ });
+app.post('/api/settings', (req, res) => { /* ... */ });
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 module.exports = app;
-
-if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT, () => {
-      console.log(`サーバーがポート${PORT}で起動しました。 http://localhost:${PORT} で確認できます。`);
-    });
-}

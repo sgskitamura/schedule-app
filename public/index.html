@@ -118,13 +118,15 @@
             }
         }
         
+        // --- ここから各タブのレンダリングとロジックを実装 ---
+
         function renderGeneratorTab() {
             const container = document.getElementById('generator-content');
-            container.innerHTML = `<p class="p-4">文章生成タブのコンテンツ</p>`;
+            container.innerHTML = `<p class="p-4">文章生成タブのコンテンツ</p>`; // この中身は後で実装
         }
         function renderParserTab(){
             const container = document.getElementById('parser-content');
-            container.innerHTML = `<p class="p-4">返信解析タブのコンテンツ</p>`;
+            container.innerHTML = `<p class="p-4">返信解析タブのコンテンツ</p>`; // この中身は後で実装
         }
         function renderMembersTab() {
             const container = document.getElementById('members-content');
